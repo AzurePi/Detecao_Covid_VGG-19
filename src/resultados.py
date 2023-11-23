@@ -114,11 +114,10 @@ def grafico_aux(i: int, titulo: str, treino, validacao, teste, teste_other, ylab
     plt.gca().yaxis.set_minor_locator(MultipleLocator(0.05))
     if ylabel == "Acurácia":
         if i == 2:
-            plt.ylim(0.8, 1.0)  # Limitar o gráfico entre 0.8 e 1.0 para a acurácia do dataset 2
+            plt.ylim(0.7, 1.0)  # Limitar o gráfico entre 0.7 e 1.0 para a acurácia do dataset 2
         else:
             plt.ylim(0, 1.0)
 
-        # plotamos o resultado dos testes só para a acurácia
         j = 3 - i
 
         plt.plot(len(treino) - 1, teste['accuracy'], 'o', label=f"Teste (dataset {i})")
@@ -180,11 +179,7 @@ def salvar_resultados(metrics: list[str], N: list[list[int]], i: int, test_score
                       test_score_transfer: dict[str:float], time: timedelta, time_transfer: timedelta,
                       test_scores_others: dict[str:float], test_scores_transfer_others: dict[str:float]) -> None:
     """
-    Salva especificações do dataset em um arquivo "resultados/info{i}.txt".
-
-    Salva o tempo decorrido no teste no arquivo "resultados/tempo{i}.csv".
-
-    Salva os valores de acurácia e perda do teste em um arquivo "resultados/teste{i}.csv".
+    Salva os resultados do treinamento e teste em arquivos.
 
     :param metrics: Lista com os nomes das métricas a serem salvas
     :param N: Uma tupla contendo duas listas de inteiros, onde a primeira lista representa o número de exemplos
@@ -200,36 +195,34 @@ def salvar_resultados(metrics: list[str], N: list[list[int]], i: int, test_score
     :param test_scores_transfer_others: Dicionário de pontuações de testes com outros datasets usando transfer learning (em que as chaves são os outros datasets).
     :return: None
     """
-    if not Path(f"resultados/info{i}.txt").exists():
-        with open(f"resultados/info{i}.txt", "w") as file:
+    resultados_path = Path("resultados")
+    resultados_path.mkdir(exist_ok=True)
+
+    info_path = resultados_path / f"info{i}.txt"
+    tempo_path = resultados_path / f"tempo/tempo{i}.csv"
+    testes_path = resultados_path / f"testes/testes{i}.csv"
+    others_path = resultados_path / f"testes/others{i}.csv"
+
+    if not info_path.exists():
+        with info_path.open("w") as file:
             file.write(f"N: {N[i - 1][0] + N[i - 1][1]} imagens\n"
                        f"N positivas: {N[i - 1][0]} imagens\n"
                        f"N negativas: {N[i - 1][1]} imagens")
 
-    with open(f"resultados/tempo/tempo{i}.csv", "a") as file:
+    with tempo_path.open("a") as file:
         file.write(f"{time},{time_transfer}\n")
 
-    with open(f"resultados/testes/testes{i}.csv", "a") as file:
+    # função auxiliar para salvar as métricas em um arquivo
+    def salvar_metricas(file_path: Path, *resultados):
         line = []
-        for metric in metrics:
-            line.append(test_score[metric])
-        for metric in metrics:
-            line.append(test_score_transfer[metric])
-        line = ";".join(str(m) for m in line)
+        for resultado in resultados:
+            for metric in metrics:
+                line.append(resultado[metric])
+        with file_path.open("a") as file:
+            file.write(";".join(str(m) for m in line) + "\n")
 
-        file.write(f"{line}\n")
+    salvar_metricas(testes_path, test_score, test_score_transfer)
 
-    with open(f"resultados/testes/others{i}.csv", "a") as file:
-        j = 3 - i
-        ds = f"dataset{j}"
-        test_score_other = test_scores_others[ds]
-        test_score_other_transfer = test_scores_transfer_others[ds]
-
-        line = []
-        for metric in metrics:
-            line.append(test_score_other[metric])
-        for metric in metrics:
-            line.append(test_score_other_transfer[metric])
-        line = ";".join(str(m) for m in line)
-
-        file.write(f"{line}\n")
+    j = 3 - i
+    ds = f"dataset{j}"
+    salvar_metricas(others_path, test_scores_others[ds], test_scores_transfer_others[ds])

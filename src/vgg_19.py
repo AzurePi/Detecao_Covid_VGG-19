@@ -83,7 +83,7 @@ def treinar():
 
     N = preparar_diretorios(test_split, [dataset_dir1, dataset_dir2])
 
-    # Criação dos modelos (salvamos os pesos de inicialização para garantir consistência dos treinamentos com datasets diferentes0
+    # Criação dos modelos (salvamos os pesos de inicialização para garantir consistência dos treinamentos com datasets diferentes)
     modelo = criar_modelo_normal()
     print("Normal:")
     modelo.summary()
@@ -177,6 +177,6 @@ def treinar():
 
 
 if __name__ == "__main__":
-    for i in range(0, 7):
+    for _ in range(0, 8):
         treinar()
         apagar_treinamento_e_teste()
