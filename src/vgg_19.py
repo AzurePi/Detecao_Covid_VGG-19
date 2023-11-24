@@ -44,11 +44,11 @@ def criar_modelo(pesos, congelar_base) -> tf.keras.Model:
     x = tf.keras.layers.Dropout(rate=0.3)(x)
     x = tf.keras.layers.Dense(units=2048, activation="relu")(x)
     x = tf.keras.layers.Dropout(rate=0.2)(x)
-    outputs = tf.keras.layers.Dense(units=2, activation="softmax", name="predictions")(x)
+    outputs = tf.keras.layers.Dense(units=2, activation="sigmoid", name="predictions")(x)
 
     modelo = tf.keras.Model(inputs=image_inputs, outputs=outputs)
     modelo.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=base_learning_rate),
-                   loss=tf.keras.losses.CategoricalCrossentropy(), metrics=metrics)
+                   loss=keras.losses.BinaryCrossentropy(), metrics=metrics)
     return modelo
 
 
