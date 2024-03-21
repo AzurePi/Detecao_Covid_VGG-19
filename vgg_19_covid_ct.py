@@ -43,7 +43,7 @@ if not os.path.exists("./dataset"):
 # @title Restrição do tamanho do dataset -------------------------------------------------------------------------------
 # utilizando um sampling randomizado, separamos as imagens em conjuntos de treinamento e validação
 
-sampling_training = 0.4
+sampling_training = 0.3
 sampling_validation = 0.2
 
 if not (os.path.exists("./training")):
@@ -51,14 +51,14 @@ if not (os.path.exists("./training")):
     os.mkdir("./training/positive")
     os.mkdir("./training/negative")
 
-    # selecionamos 40% das imagens positivas para treinamento
+    # selecionamos uma fração das imagens positivas para treinamento
     dir = os.listdir("./dataset/positive")
     dir = random.sample(dir, (int)(len(dir) * sampling_training))
     source = "./dataset/positive/"
     for imagem in dir:
         shutil.copy(source + imagem, "./training/positive/")
 
-    # selecionamos 40% das imagens negativas para treinamento
+    # selecionamos uma fração das imagens negativas para treinamento
     dir = os.listdir("./dataset/negative")
     dir = random.sample(dir, (int)(len(dir) * sampling_training))
     source = "./dataset/negative/"
@@ -70,14 +70,14 @@ if not (os.path.exists("./validation")):
     os.mkdir("./validation/positive")
     os.mkdir("./validation/negative")
 
-    # selecionamos 20% das imagens positivas para validação
+    # selecionamos uma fração das imagens positivas para validação
     dir = os.listdir("./dataset/positive")
     dir = random.sample(dir, (int)(len(dir) * sampling_validation))
     source = "./dataset/positive/"
     for imagem in dir:
         shutil.copy(source + imagem, "./validation/positive/")
 
-    # selecionamos 20% das imagens negativas para validação
+    # selecionamos uma fração das imagens negativas para validação
     dir = os.listdir("./dataset/negative")
     dir = random.sample(dir, (int)(len(dir) * sampling_validation))
     source = "./dataset/negative/"
