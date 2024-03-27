@@ -4,8 +4,11 @@
 
 import os
 import shutil
+
+from keras.callbacks import CSVLogger
 import tensorflow as tf
 from matplotlib import pyplot as plt
+from matplotlib.ticker import MaxNLocator
 import random
 
 """# Preparação do Dataset"""
@@ -52,18 +55,18 @@ if not (os.path.exists("./training")):
     os.mkdir("./training/negative")
 
     # selecionamos uma fração das imagens positivas para treinamento
-    dir = os.listdir("./dataset/positive")
-    dir = random.sample(dir, (int)(len(dir) * sampling_training))
+    diretorio = os.listdir("./dataset/positive")
+    diretorio = random.sample(diretorio, int(len(diretorio) * sampling_training))
     source = "./dataset/positive/"
-    for imagem in dir:
-        shutil.copy(source + imagem, "./training/positive/")
+    for imagem in diretorio:
+        shutil.copy(f'{source}{imagem}', "./training/positive/")
 
     # selecionamos uma fração das imagens negativas para treinamento
-    dir = os.listdir("./dataset/negative")
-    dir = random.sample(dir, (int)(len(dir) * sampling_training))
+    diretorio = os.listdir("./dataset/negative")
+    diretorio = random.sample(diretorio, int(len(diretorio) * sampling_training))
     source = "./dataset/negative/"
-    for imagem in dir:
-        shutil.copy(source + imagem, "./training/negative/")
+    for imagem in diretorio:
+        shutil.copy(f'{source}{imagem}', "./training/negative/")
 
 if not (os.path.exists("./validation")):
     os.mkdir("./validation")
@@ -71,19 +74,18 @@ if not (os.path.exists("./validation")):
     os.mkdir("./validation/negative")
 
     # selecionamos uma fração das imagens positivas para validação
-    dir = os.listdir("./dataset/positive")
-    dir = random.sample(dir, (int)(len(dir) * sampling_validation))
+    diretorio = os.listdir("./dataset/positive")
+    diretorio = random.sample(diretorio, int(len(diretorio) * sampling_validation))
     source = "./dataset/positive/"
-    for imagem in dir:
-        shutil.copy(source + imagem, "./validation/positive/")
+    for imagem in diretorio:
+        shutil.copy(f'{source}{imagem}', "./validation/positive/")
 
     # selecionamos uma fração das imagens negativas para validação
-    dir = os.listdir("./dataset/negative")
-    dir = random.sample(dir, (int)(len(dir) * sampling_validation))
+    diretorio = os.listdir("./dataset/negative")
+    diretorio = random.sample(diretorio, int(len(diretorio) * sampling_validation))
     source = "./dataset/negative/"
-    for imagem in dir:
-        shutil.copy(source + imagem, "./validation/negative/")
-
+    for imagem in diretorio:
+        shutil.copy(f'{source}{imagem}', "./validation/negative/")
 
 # @title Criação de dataset keras --------------------------------------------------------------------------------------
 train_ds = tf.keras.utils.image_dataset_from_directory(
@@ -129,25 +131,29 @@ epocas = 100
 modelo_final.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=base_learning_rate),
                      loss=tf.keras.losses.CategoricalCrossentropy(), metrics=['accuracy'])
 
-history = modelo_final.fit(x=train_ds, epochs=epocas, batch_size=32, validation_data=validation_ds)
+csv_logger = CSVLogger("training.log", ",", False)  # cria um log em CSV para armazenar a história do modelo
+history = modelo_final.fit(x=train_ds, epochs=epocas, batch_size=32, validation_data=validation_ds,
+                           callbacks=[csv_logger])
 
 plt.plot(history.history['accuracy'])
 plt.plot(history.history['val_accuracy'])
 plt.title("Acurácia do Modelo")
 plt.xlabel("Épocas")
+plt.gca().xaxis.set_major_locator(MaxNLocator(integer=True))  # garante que só inteiros serão utilizados na escala
 plt.ylabel("Acurácia")
 plt.legend(['train', 'validation'])
-plt.show()
+plt.savefig("acuracia.png", bbox_inches='tight')
+plt.close()
 
 plt.plot(history.history['loss'])
 plt.plot(history.history['val_loss'])
 plt.title("Perda do Modelo")
 plt.xlabel("Época")
+plt.gca().xaxis.set_major_locator(MaxNLocator(integer=True))  # garante que só inteiros serão utilizados na escala
 plt.ylabel("Perda")
 plt.legend(['train', 'validation'])
-plt.show()
-
-prediction = modelo_final.predict(validation_ds)
+plt.savefig("perda.png", bbox_inches='tight')
+plt.close()
 
 shutil.rmtree("./training")
 shutil.rmtree("./validation")
