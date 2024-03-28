@@ -131,7 +131,7 @@ epocas = 100
 modelo_final.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=base_learning_rate),
                      loss=tf.keras.losses.CategoricalCrossentropy(), metrics=['accuracy'])
 
-csv_logger = CSVLogger("training.log", ",", False)  # cria um log em CSV para armazenar a história do modelo
+csv_logger = CSVLogger("training.csv", ",", False)  # cria um log em CSV para armazenar a história do modelo
 history = modelo_final.fit(x=train_ds, epochs=epocas, batch_size=32, validation_data=validation_ds,
                            callbacks=[csv_logger])
 
