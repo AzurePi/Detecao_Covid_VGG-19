@@ -1,0 +1,1 @@
+Sampling do training set: 0.3Sampling do training set: 0.3Learning rate: 0.001Épocas: 100Tempo decorrido: 16:27:24.064548
