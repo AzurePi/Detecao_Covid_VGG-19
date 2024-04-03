@@ -7,9 +7,12 @@ import shutil
 
 from keras.callbacks import CSVLogger
 import tensorflow as tf
+
 from matplotlib import pyplot as plt
 from matplotlib.ticker import MaxNLocator
+
 import random
+import datetime
 
 """# Preparação do Dataset"""
 
@@ -47,7 +50,10 @@ if not os.path.exists("./dataset"):
 # utilizando um sampling randomizado, separamos as imagens em conjuntos de treinamento e validação
 
 sampling_training = 0.3
-sampling_validation = 0.2
+sampling_validation = 0.3
+
+os.mkdir("./temp")
+shutil.copytree("./dataset", "./temp", dirs_exist_ok=True)
 
 if not (os.path.exists("./training")):
     os.mkdir("./training")
@@ -55,18 +61,18 @@ if not (os.path.exists("./training")):
     os.mkdir("./training/negative")
 
     # selecionamos uma fração das imagens positivas para treinamento
-    diretorio = os.listdir("./dataset/positive")
+    diretorio = os.listdir("./temp/positive")
     diretorio = random.sample(diretorio, int(len(diretorio) * sampling_training))
-    source = "./dataset/positive/"
+    source = "./temp/positive/"
     for imagem in diretorio:
-        shutil.copy(f'{source}{imagem}', "./training/positive/")
+        shutil.move(f'{source}{imagem}', "./training/positive/")
 
     # selecionamos uma fração das imagens negativas para treinamento
-    diretorio = os.listdir("./dataset/negative")
+    diretorio = os.listdir("./temp/negative")
     diretorio = random.sample(diretorio, int(len(diretorio) * sampling_training))
-    source = "./dataset/negative/"
+    source = "./temp/negative/"
     for imagem in diretorio:
-        shutil.copy(f'{source}{imagem}', "./training/negative/")
+        shutil.move(f'{source}{imagem}', "./training/negative/")
 
 if not (os.path.exists("./validation")):
     os.mkdir("./validation")
@@ -74,18 +80,20 @@ if not (os.path.exists("./validation")):
     os.mkdir("./validation/negative")
 
     # selecionamos uma fração das imagens positivas para validação
-    diretorio = os.listdir("./dataset/positive")
+    diretorio = os.listdir("./temp/positive")
     diretorio = random.sample(diretorio, int(len(diretorio) * sampling_validation))
-    source = "./dataset/positive/"
+    source = "./temp/positive/"
     for imagem in diretorio:
-        shutil.copy(f'{source}{imagem}', "./validation/positive/")
+        shutil.move(f'{source}{imagem}', "./validation/positive/")
 
     # selecionamos uma fração das imagens negativas para validação
-    diretorio = os.listdir("./dataset/negative")
+    diretorio = os.listdir("./temp/negative")
     diretorio = random.sample(diretorio, int(len(diretorio) * sampling_validation))
-    source = "./dataset/negative/"
+    source = "./temp/negative/"
     for imagem in diretorio:
-        shutil.copy(f'{source}{imagem}', "./validation/negative/")
+        shutil.move(f'{source}{imagem}', "./validation/negative/")
+
+shutil.rmtree("./temp")
 
 # @title Criação de dataset keras --------------------------------------------------------------------------------------
 train_ds = tf.keras.utils.image_dataset_from_directory(
@@ -106,7 +114,7 @@ validation_ds = tf.keras.utils.image_dataset_from_directory(
 
 image_input = tf.keras.layers.Input(shape=(256, 256, 3))
 VGG_19_base = tf.keras.applications.VGG19(include_top=False, weights="imagenet", input_tensor=image_input,
-                                          pooling="max", classes=1000, classifier_activation="softmax")
+                                          pooling="max", classifier_activation="softmax")
 
 for i, layer in enumerate(VGG_19_base.layers):
     layer.trainable = False
@@ -115,11 +123,11 @@ print(VGG_19_base.summary())
 
 # @title Layers para fine-tuning ---------------------------------------------------------------------------------------
 FC_layer_Flatten = tf.keras.layers.Flatten()(VGG_19_base.output)
-Dense = tf.keras.layers.Dense(units=200, activation="relu")(FC_layer_Flatten)
-Dense = tf.keras.layers.Dense(units=160, activation="relu")(Dense)
-Dense = tf.keras.layers.Dense(units=80, activation="relu")(Dense)
-Dense = tf.keras.layers.Dense(units=40, activation="relu")(Dense)
-Dense = tf.keras.layers.Dense(units=20, activation="relu")(Dense)
+Dense = tf.keras.layers.Dense(units=256, activation="relu")(FC_layer_Flatten)
+Dense = tf.keras.layers.Dense(units=128, activation="relu")(Dense)
+Dense = tf.keras.layers.Dense(units=64, activation="relu")(Dense)
+Dense = tf.keras.layers.Dense(units=32, activation="relu")(Dense)
+Dense = tf.keras.layers.Dense(units=16, activation="relu")(Dense)
 Classification = tf.keras.layers.Dense(units=2, activation="softmax")(Dense)
 
 modelo_final = tf.keras.Model(inputs=image_input, outputs=Classification)
@@ -132,8 +140,10 @@ modelo_final.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=base_learn
                      loss=tf.keras.losses.CategoricalCrossentropy(), metrics=['accuracy'])
 
 csv_logger = CSVLogger("training.csv", ",", False)  # cria um log em CSV para armazenar a história do modelo
-history = modelo_final.fit(x=train_ds, epochs=epocas, batch_size=32, validation_data=validation_ds,
-                           callbacks=[csv_logger])
+
+start_time = datetime.datetime.now()
+history = modelo_final.fit(x=train_ds, epochs=epocas, validation_data=validation_ds, callbacks=[csv_logger], verbose=2)
+end_time = datetime.datetime.now()
 
 plt.plot(history.history['accuracy'])
 plt.plot(history.history['val_accuracy'])
@@ -155,5 +165,9 @@ plt.legend(['train', 'validation'])
 plt.savefig("perda.png", bbox_inches='tight')
 plt.close()
 
-shutil.rmtree("./training")
-shutil.rmtree("./validation")
+with open("parametros.txt", "w") as file:
+    file.write(f"Sampling do training set: {sampling_training}")
+    file.write(f"Sampling do training set: {sampling_validation}")
+    file.write(f"Learning rate: {base_learning_rate}")
+    file.write(f"Épocas: {epocas}")
+    file.write(f"Tempo decorrido: {end_time-start_time}")
