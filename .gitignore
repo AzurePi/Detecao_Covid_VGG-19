@@ -1,8 +1,10 @@
 /dataset/
+/temp/
 /training/
 /validation/
+/teste/
 /acuracia.png
 /perda.png
 /training.csv
-/parametros.txt
-/temp/
+/info.txt
+/info.txt
