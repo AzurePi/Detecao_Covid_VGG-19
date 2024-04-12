@@ -1,6 +1,5 @@
 /dataset/
 /temp/
-/training/
-/validation/
+/treinamento/
 /teste/
-/results/
+/resultados/
