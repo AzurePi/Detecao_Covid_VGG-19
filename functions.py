@@ -1,10 +1,26 @@
 import os
 import shutil
-from multiprocessing import Pool
 from pathlib import Path
 
 import numpy as np
 from matplotlib import pyplot as plt
+
+
+def prepararDiretorios(dataset_dir1, dataset_dir2, test_split):
+    if not Path("resultados").exists():
+        Path("resultados").mkdir()
+
+    preparar_dataset1(dataset_dir1)
+    num_positivas1 = len(list((dataset_dir1 / "positivo").glob("*")))
+    num_negativas1 = len(list((dataset_dir1 / "negativo").glob("*")))
+    treinamento_e_teste(1, num_positivas1, num_negativas1, test_split, dataset_dir1)
+
+    preparar_dataset2(dataset_dir2)
+    num_positivas2 = len(list((dataset_dir2 / "positivo").glob("*")))
+    num_negativas2 = len(list((dataset_dir2 / "negativo").glob("*")))
+    treinamento_e_teste(2, num_positivas2, num_negativas2, test_split, dataset_dir2)
+
+    return num_positivas1 + num_negativas1, num_positivas2 + num_negativas2
 
 
 def formatar_diretorio(origem, destino):
@@ -21,7 +37,33 @@ def formatar_diretorio(origem, destino):
     shutil.rmtree(origem)
 
 
-def preparar_dataset(dataset_dir=Path("./dataset")):
+def preparar_dataset1(dataset_dir):
+    """
+    Prepara o ambiente com o dataset "sarscov2-ctscan-dataset", baixado do kaggle
+
+    Se o dataset ainda não foi baixado, baixamos e descompactamos
+
+    :param dataset_dir: Um diretório pathlib.Path onde o dataset sera armazenado
+    :return:
+    """
+    if not dataset_dir.exists():
+        print("Baixando dataset de imagens e criando diretório...\n")
+        dataset_dir.mkdir()
+
+        os.system(f'kaggle datasets download -d plameneduardo/sarscov2-ctscan-dataset -p {dataset_dir} --unzip -q')
+
+        positivo_dir = dataset_dir / "COVID"
+        negativo_dir = dataset_dir / "non-COVID"
+
+        formatar_diretorio(positivo_dir, dataset_dir / "positivo")
+        formatar_diretorio(negativo_dir, dataset_dir / "negativo")
+
+        print("Pronto!")
+    else:
+        print("Diretório de imagens já está presente na máquina. Prosseguindo...")
+
+
+def preparar_dataset2(dataset_dir=Path("./dataset2")):
     """
     Prepara o ambiente com o dataset "preprocessed-ct-scans-for-covid19", baixado do kaggle
 
@@ -66,7 +108,7 @@ def mover_imagens(origem, num_imagens, destino):
         destino_path.mkdir(parents=True)
 
     source_path = Path(origem)
-    imagens = source_path.glob("*.jpg")
+    imagens = source_path.glob("*")
 
     for count, image_name in enumerate(imagens):
         if count >= num_imagens:
@@ -76,26 +118,30 @@ def mover_imagens(origem, num_imagens, destino):
         shutil.move(src, dst)
 
 
-def treinamento_e_teste(num_positivas, num_negativas, test_split, dataset_dir=Path("./dataset")):
-    if not (Path("treinamento").exists() & Path("./teste").exists()):
+# padrao_regex = re.compile(r".*\.(jpg|jpeg|png)$", re.IGNORECASE)
+# if padrao_regex.match(image_name.name):
+
+
+def treinamento_e_teste(n, num_positivas, num_negativas, test_split, dataset_dir):
+    if not (Path(f"treinamento{n}").exists() and Path(f"./teste{n}").exists()):
         print("\nCriando diretórios para treinamento e teste...")
 
-        if not Path("./temp").exists():
+        temp_dir = Path("./temp")
+        if not temp_dir.exists():
             print("\tCriando diretório temporário...")
-            Path("./temp").mkdir()
-            with Pool() as pool:
-                pool.apply_async(shutil.copytree, (f"./{dataset_dir}/positivo", "./temp/positivo"))
-                pool.apply_async(shutil.copytree, (f"./{dataset_dir}/negativo", "./temp/negativo"))
-                pool.close()
-                pool.join()
+            temp_dir.mkdir()
+            shutil.copytree(src=f"./{dataset_dir}/positivo", dst="./temp/positivo")
+            shutil.copytree(src=f"./{dataset_dir}/negativo", dst="./temp/negativo")
             print("\tPronto!\nProsseguindo...")
 
-        mover_imagens("./temp/positivo", int(num_positivas * test_split), "./teste/positivo")
-        mover_imagens("./temp/negativo", int(num_negativas * test_split), "./teste/negativo")
-        mover_imagens("./temp/positivo", num_positivas - int(num_positivas * test_split), "./treinamento/positivo")
-        mover_imagens("./temp/negativo", num_negativas - int(num_negativas * test_split), "./treinamento/negativo")
+        mover_imagens(temp_dir / "positivo", int(num_positivas * test_split), f"./teste{n}/positivo")
+        mover_imagens(temp_dir / "/negativo", int(num_negativas * test_split), f"./teste{n}/negativo")
+        mover_imagens(temp_dir / "/positivo", num_positivas - int(num_positivas * test_split),
+                      f"./treinamento{n}/positivo")
+        mover_imagens(temp_dir / "/negativo", num_negativas - int(num_negativas * test_split),
+                      f"./treinamento{n}/negativo")
 
-        shutil.rmtree("./temp")
+        shutil.rmtree(temp_dir)
         print("Pronto!")
     else:
         print("Diretórios de treinamento e teste já estão presentes. Prosseguindo...")
