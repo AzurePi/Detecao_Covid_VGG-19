@@ -135,10 +135,10 @@ def treinamento_e_teste(n, num_positivas, num_negativas, test_split, dataset_dir
             print("\tPronto!\nProsseguindo...")
 
         mover_imagens(temp_dir / "positivo", int(num_positivas * test_split), f"./teste{n}/positivo")
-        mover_imagens(temp_dir / "/negativo", int(num_negativas * test_split), f"./teste{n}/negativo")
-        mover_imagens(temp_dir / "/positivo", num_positivas - int(num_positivas * test_split),
+        mover_imagens(temp_dir / "negativo", int(num_negativas * test_split), f"./teste{n}/negativo")
+        mover_imagens(temp_dir / "positivo", num_positivas - int(num_positivas * test_split),
                       f"./treinamento{n}/positivo")
-        mover_imagens(temp_dir / "/negativo", num_negativas - int(num_negativas * test_split),
+        mover_imagens(temp_dir / "negativo", num_negativas - int(num_negativas * test_split),
                       f"./treinamento{n}/negativo")
 
         shutil.rmtree(temp_dir)

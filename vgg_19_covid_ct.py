@@ -15,7 +15,7 @@ seed()
 
 # Parâmetros do treinamento --------------------------------------------------------------------------------------------
 base_learning_rate = 0.001
-epocas = 3
+epocas = 100
 
 test_split = 0.2
 validation_split = 0.4
@@ -89,7 +89,7 @@ for i in [1, 2]:
     test_score = modelo_final_transfer.evaluate(test_ds)
 
     # Registro dos resultados ------------------------------------------------------------------------------------------
-    print("Salvando informações e resultados...")
+    print("Salvando informações e resultados...\n\n")
 
     # plotar uma imagem com exemplos de imagesn positivas e negativas
     plot_images_from_dataset(test_ds, f"resultados/sample{i}.png")
