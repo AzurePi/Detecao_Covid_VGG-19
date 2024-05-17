@@ -2,7 +2,7 @@ N: 19685 imagens
 Test split: 0.2
 Validation split: 0.4
 Learning rate: 0.001
-Épocas: 3
-Tempo decorrido: 0:05:33.678205
-Acurácia do deste: 0.6202020049095154
-Perda do deste: 0.6560417413711548
+Épocas: 100
+Tempo decorrido: 3:06:35.967085
+Acurácia do deste: 0.9070706963539124
+Perda do deste: 0.24408510327339172
