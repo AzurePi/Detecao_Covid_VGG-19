@@ -6,8 +6,8 @@ from random import seed, randint
 import tensorflow as tf
 from keras.callbacks import CSVLogger
 
-from functions import salvar_parametros, prepararResultados, prepararDiretorios, plotar_amostra, plotar_graficos, \
-    salvar_resultados
+from functions import salvar_parametros, prepararResultados, prepararDiretorios, plotar_amostra, salvar_resultados, \
+    plotar_graficos
 
 # Parâmetros do treinamento ----------------------------------------------------------------------------------------
 base_learning_rate = 0.001
