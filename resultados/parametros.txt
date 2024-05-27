@@ -1,0 +1,4 @@
+Learning rate: 0.001
+Épocas: 3
+Test split: 0.2
+Validation split: 0.4

@@ -1,0 +1,11 @@
+N: 19685 imagens
+N positivas: 4001 imagens
+N negativas: 15684 imagens
+
+Tempo decorrido: 0:44:21.182352
+Perda do teste: 0.7819215059280396
+Acurácia do teste: 0.9293699264526367
+
+Tempo decorrido com transfer learning: 0:44:23.195049
+Perda do teste com transfer learning: 0.10508743673563004
+Acurácia do teste com transfer learning: 0.9560467600822449
