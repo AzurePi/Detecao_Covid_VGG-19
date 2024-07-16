@@ -1,10 +1,10 @@
-import os
 import shutil
 from datetime import timedelta
 from pathlib import Path
+from typing import Tuple, List
 
+import kaggle
 import keras.callbacks
-import numpy as np
 import tensorflow as tf
 from matplotlib import pyplot as plt
 from matplotlib.ticker import MaxNLocator
@@ -25,54 +25,62 @@ def salvar_parametros(base_learning_rate: float, epocas: int, test_split: float,
         file.write(f"Épocas: {epocas}\n")
         file.write(f"Test split: {test_split}\n")
         file.write(f"Validation split: {validation_split}\n")
-        file.close()
 
 
 def prepararResultados() -> tuple[Path, int]:
     """
     Prepara a estrutura de diretórios para armazenar os resultados do treinamento. Calcula o número de treinamentos
-    já feitos com base na quantidade de arquivos em "./resultados/training/normal".
+    já feitos com base na quantidade de arquivos em "./resultados/logs/normal".
 
-    Verifica se os diretórios "./resultados", "./resultados/training", "./resultados/training/normal" e
-    "./resultados/training/transfer" existem. Se não existirem, cria esses diretórios.
+    Verifica se os diretórios "./resultados", "./resultados/logs", "./resultados/logs/normal" e
+    "./resultados/logs/transfer" existem. Se não existirem, cria esses diretórios.
 
-    :return: Uma tupla contendo o caminho do diretório de treinamento e o número de treinamentos já feitos.
+    :return: Uma tupla contendo o caminho do diretório de treinamento e o número de treinamentos já feitos 9calculado com base no número de logs encontrados)
     """
-    if not Path("./resultados").exists():
-        Path("./resultados").mkdir()
-    if not Path("./resultados/training").exists():
-        Path("./resultados/training").mkdir()
-    if not Path("./resultados/training/normal").exists():
-        Path("./resultados/training/normal").mkdir()
-    if not Path("./resultados/training/transfer").exists():
-        Path("./resultados/training/transfer").mkdir()
+    dirs = ["./resultados", "./resultados/logs", "./resultados/logs/normal", "./resultados/logs/transfer",
+            "./resultados/graphs", "./resultados/tempo", "./resultados/testes"]
 
-    training = Path("./resultados/training")
-    n = np.ceil(len(list((training / "normal").glob("*"))) / 2)
-    return training, n
+    for path in dirs:
+        Path(path).mkdir(parents=True, exist_ok=True)
+
+    for i in [1, 2, 3]:
+        if not Path(f"./resultados/tempo/tempo{i}.csv").exists():
+            with open(f"./resultados/tempo/tempo{i}.csv", "w") as file:
+                file.write("Tempo,Tempo Transfer\n")
+
+        if not Path(f"./resultados/testes/testes{i}.csv").exists():
+            with open(f"./resultados/testes/testes{i}.csv", "w") as file:
+                file.write("Perda,Acurácia,Perda Transfer,Acurácia Transfer\n")
+
+    training = Path("./resultados/logs/normal")
+    n = sum(1 for _ in training.iterdir()) // 2
+    return Path("./resultados/logs"), n
 
 
-def prepararDiretorios(dataset_dir1: Path, dataset_dir2: Path, test_split: float) -> tuple[list[int], list[int]]:
+def prepararDiretorios(test_split: float, dataset_dirs=[Path("dataset1"), Path("dataset2"), Path("dataset3")]) -> list[list[int]]:
     """
     Prepara os diretórios e conjuntos de dados para treinamento e teste.
 
-    :param dataset_dir1: Diretório do primeiro conjunto de dados.
-    :param dataset_dir2: Diretório do segundo conjunto de dados.
     :param test_split: Proporção dos dados a serem utilizados para teste.
-    :return: Uma lista contendo duas sublistas, cada uma com o número de exemplos positivos e negativos para os dois conjuntos de dados.
+    :param dataset_dirs: Lista dos caminhos para os diretórios de imagens.
+    :return: Uma lista contendo três sublistas, cada uma com o número de exemplos positivos e negativos para os conjuntos de dados.
     """
+    N = []
 
-    preparar_dataset1(dataset_dir1)
-    num_positivas1 = len(list((dataset_dir1 / "positivo").glob("*")))
-    num_negativas1 = len(list((dataset_dir1 / "negativo").glob("*")))
-    treinamento_e_teste(1, num_positivas1, num_negativas1, test_split, dataset_dir1)
+    for i, dataset_dir in enumerate(dataset_dirs, start=1):
+        if i == 1:
+            preparar_dataset1(dataset_dir)
+        elif i == 2:
+            preparar_dataset2(dataset_dir)
+        elif i == 3:
+            preparar_dataset3(*dataset_dirs)
 
-    preparar_dataset2(dataset_dir2)
-    num_positivas2 = len(list((dataset_dir2 / "positivo").glob("*")))
-    num_negativas2 = len(list((dataset_dir2 / "negativo").glob("*")))
-    treinamento_e_teste(2, num_positivas2, num_negativas2, test_split, dataset_dir2)
+        num_positivas = len(list((dataset_dir / "positivo").glob("*")))
+        num_negativas = len(list((dataset_dir / "negativo").glob("*")))
+        treinamento_e_teste(i, num_positivas, num_negativas, test_split, dataset_dir)
+        N.append([num_positivas, num_negativas])
 
-    return [num_positivas1, num_negativas1], [num_positivas2, num_negativas2]
+    return N
 
 
 def formatar_diretorio(origem: Path, destino: Path) -> None:
@@ -83,8 +91,7 @@ def formatar_diretorio(origem: Path, destino: Path) -> None:
     :param destino: Diretório de destino.
     :return: None
     """
-    if not destino.exists():
-        destino.mkdir()
+    destino.mkdir(parents=True, exist_ok=True)
     for file in origem.iterdir():
         shutil.move(file, destino / file.name)
     shutil.rmtree(origem)
@@ -100,10 +107,10 @@ def preparar_dataset1(dataset_dir=Path("./dataset1")) -> None:
     :return: None
     """
     if not dataset_dir.exists():
-        print("Baixando dataset 1 de imagens e criando diretório...\n")
+        print("Baixando dataset 1 de imagens e criando diretório...")
         dataset_dir.mkdir()
 
-        os.system(f'kaggle datasets download -d plameneduardo/sarscov2-ctscan-dataset -p {dataset_dir} --unzip -q')
+        kaggle.api.dataset_download_files('plameneduardo/sarscov2-ctscan-dataset', path=dataset_dir, unzip=True)
 
         positivo_dir = dataset_dir / "COVID"
         negativo_dir = dataset_dir / "non-COVID"
@@ -111,9 +118,9 @@ def preparar_dataset1(dataset_dir=Path("./dataset1")) -> None:
         formatar_diretorio(positivo_dir, dataset_dir / "positivo")
         formatar_diretorio(negativo_dir, dataset_dir / "negativo")
 
-        print("Pronto!")
+        print("Pronto!\n")
     else:
-        print("Diretório de imagens para o dataset 1 já está presente na máquina. Prosseguindo...")
+        print("Diretório de imagens para o dataset 1 já está presente na máquina. Prosseguindo...\n")
 
 
 def preparar_dataset2(dataset_dir=Path("./dataset2")) -> None:
@@ -127,11 +134,11 @@ def preparar_dataset2(dataset_dir=Path("./dataset2")) -> None:
     :return: None
     """
     if not dataset_dir.exists():
-        print("Baixando dataset 2 de imagens e criando diretório...\n")
+        print("Baixando dataset 2 de imagens e criando diretório...")
         dataset_dir.mkdir()
 
-        os.system(f'kaggle datasets download -d azaemon/preprocessed-ct-scans-for-covid19 -p {dataset_dir} --unzip -q')
-        shutil.rmtree(f"{dataset_dir}/Preprocessed CT scans")
+        kaggle.api.dataset_download_files('azaemon/preprocessed-ct-scans-for-covid19', path=dataset_dir, unzip=True)
+        shutil.rmtree(dataset_dir / "Preprocessed CT scans")
 
         positivo_dir = dataset_dir / "Original CT Scans/pCT"
         negativo_dir = dataset_dir / "Original CT Scans/nCT"
@@ -142,9 +149,35 @@ def preparar_dataset2(dataset_dir=Path("./dataset2")) -> None:
         formatar_diretorio(non_informative_dir, dataset_dir / "negativo")
 
         shutil.rmtree(dataset_dir / "Original CT Scans")
-        print("Pronto!")
+        print("Pronto!\n")
     else:
-        print("Diretório de imagens pra o dataset 2 já está presente na máquina. Prosseguindo...")
+        print("Diretório de imagens para o dataset 2 já está presente na máquina. Prosseguindo...\n")
+
+
+def preparar_dataset3(dataset_dir1=Path("dataset1"), dataset_dir2=Path("dataset2"),
+                      dataset_dir3=Path("dataset3")) -> None:
+    """
+    Prepara o ambiente com um dataset que une imagens do dataset1 e do dataset2.
+
+    :param dataset_dir1: Diretório do dataset 1
+    :param dataset_dir2: Diretório do dataset 2
+    :param dataset_dir3: Um diretório onde o dataset unido será armazenado.
+    :return: None
+    """
+    if not dataset_dir3.exists():
+        print("Unindo diretórios 1 e 2 e criando diretório...")
+
+        dataset_dir3.mkdir()
+        (dataset_dir3 / "positivo").mkdir()
+        (dataset_dir3 / "negativo").mkdir()
+
+        for dataset in dataset_dir1, dataset_dir2:
+            shutil.copytree(dataset / "positivo", dataset_dir3 / "positivo", dirs_exist_ok=True)
+            shutil.copytree(dataset / "negativo", dataset_dir3 / "negativo", dirs_exist_ok=True)
+
+        print("Pronto!\n")
+    else:
+        print("Diretório 3 unindo datasets 1 e 2 já está presente na máquina. Prosseguindo...\n")
 
 
 def mover_imagens(origem: Path, num_imagens: int, destino: str) -> None:
@@ -157,91 +190,86 @@ def mover_imagens(origem: Path, num_imagens: int, destino: str) -> None:
     :return: None
     """
     destino_path = Path(destino)
-    if not destino_path.exists():
-        destino_path.mkdir(parents=True)
+    destino_path.mkdir(parents=True, exist_ok=True)
 
-    source_path = Path(origem)
-    imagens = source_path.glob("*")
-
-    for count, image_name in enumerate(imagens):
+    for count, image_name in enumerate(origem.iterdir()):
         if count >= num_imagens:
             break
-        src = source_path / image_name.name
-        dst = destino_path / image_name.name
-        shutil.move(src, dst)
+        shutil.move(origem / image_name.name, destino_path / image_name.name)
 
 
-def treinamento_e_teste(n: int, num_positivas: int, num_negativas: int, test_split: float, dataset_dir: Path) -> None:
+def treinamento_e_teste(i: int, num_positivas: int, num_negativas: int, test_split: float, dataset_dir: Path) -> None:
     """
     Verifica se os diretórios de treinamento e teste já existem. Se não existirem, cria um diretório temporário,
     copia as imagens do dataset original para esse diretório e então distribui as imagens entre os diretórios
     de treinamento e teste conforme a proporção "test_split".
 
-    :param n: Número do dataset, utilizado para nomear os diretórios de treinamento e teste.
+    :param i: Número do dataset, utilizado para nomear os diretórios de treinamento e teste.
     :param num_positivas: Número de exemplos positivos no dataset original.
     :param num_negativas: Número de exemplos negativos no dataset original.
     :param test_split: Proporção dos dados a serem utilizados para teste.
     :param dataset_dir: Caminho do diretório contendo o dataset original.
     :return: None
     """
-    if not (Path(f"treinamento{n}").exists() and Path(f"./teste{n}").exists()):
-        print("\nCriando diretórios para treinamento e teste...")
+    treino_dir = Path(f"treinamento{i}")
+    teste_dir = Path(f"teste{i}")
+
+    if not (treino_dir.exists() and teste_dir.exists()):
+        print(f"Criando diretórios para treinamento e teste {i}...")
 
         temp_dir = Path("./temp")
-        if not temp_dir.exists():
+        temp_dir.mkdir(exist_ok=True)
+
+        if not (temp_dir / "positivo").exists():
             print("\tCriando diretório temporário...")
-            temp_dir.mkdir()
-            shutil.copytree(src=f"./{dataset_dir}/positivo", dst="./temp/positivo")
-            shutil.copytree(src=f"./{dataset_dir}/negativo", dst="./temp/negativo")
+            shutil.copytree(dataset_dir / "positivo", temp_dir / "positivo")
+            shutil.copytree(dataset_dir / "negativo", temp_dir / "negativo")
             print("\tPronto!\nProsseguindo...")
 
-        mover_imagens(temp_dir / "positivo", int(num_positivas * test_split), f"./teste{n}/positivo")
-        mover_imagens(temp_dir / "negativo", int(num_negativas * test_split), f"./teste{n}/negativo")
+        mover_imagens(temp_dir / "positivo", int(num_positivas * test_split), (teste_dir / "positivo").__str__())
+        mover_imagens(temp_dir / "negativo", int(num_negativas * test_split), (teste_dir / "negativo").__str__())
         mover_imagens(temp_dir / "positivo", num_positivas - int(num_positivas * test_split),
-                      f"./treinamento{n}/positivo")
+                      (treino_dir / "positivo").__str__())
         mover_imagens(temp_dir / "negativo", num_negativas - int(num_negativas * test_split),
-                      f"./treinamento{n}/negativo")
+                      (treino_dir / "negativo").__str__())
 
         shutil.rmtree(temp_dir)
-        print("Pronto!")
+        print("Pronto!\n")
     else:
-        print("Diretórios de treinamento e teste já estão presentes. Prosseguindo...")
+        print(f"Diretórios de treinamento e teste {i} já estão presentes. Prosseguindo...\n")
 
 
-def plotar_amostra(ds: tf.data.Dataset, filename: str) -> None:
+def plotar_amostra(ds: tf.data.Dataset, filename: str, class_names: list[str]) -> None:
     """
     Plota 9 imagens de um dataset e salva a figura.
 
     :param ds: Dataset de onde tirar as imagens.
     :param filename: Nome do arquivo para salvar a figura.
+    :param class_names: Nomes das classes às quais as imagens podem pertencer
     """
-    imagens, labels = next(iter(ds.take(1)))
-    label_indices = np.argmax(labels, axis=1)
     rows, cols = 3, 3
     plt.figure(figsize=(cols * 2.5, rows * 2.5))
-    for i in range(min(9, len(imagens))):
-        plt.subplot(rows, cols, i + 1)
-        plt.imshow(imagens[i].numpy().astype("uint8"))
-        plt.title(ds.class_names[label_indices[i]])
-        plt.axis("off")
+    for images, labels in ds.take(1):
+        for i in range(min(9, len(images))):
+            plt.subplot(rows, cols, i + 1)
+            plt.imshow(images[i].numpy().astype("uint8"))
+            plt.title(class_names[labels[i].numpy().argmax()])
+            plt.axis("off")
     plt.tight_layout()
     plt.savefig(filename, bbox_inches='tight')
     plt.close()
 
 
-def plotar_graficos(epocas: int, history: keras.callbacks.History, test_score: tuple[float, float],
-                    history_transfer: keras.callbacks.History, test_score_transfer: tuple[float, float],
-                    i: int, loss_max: float) -> None:
+def plotar_graficos(n: int, history: keras.callbacks.History, history_transfer: keras.callbacks.History, i: int,
+                    loss_max: float) -> None:
     """
     Plota os gráficos de acurácia e perda dos modelos treinados, com e sem transfer learning.
     Inclui pontos de acurácia e perda de teste.
     Garante que os eixos Y sejam os mesmos para todos os gráficos de acurácia e perda.
 
-    :param epocas: Número de épocas do treinamento
+    :param n: Número de iterações do treinamento
     :param history: Histórico de treinamento do modelo sem transfer learning (objeto History do Keras).
     :param history_transfer: Histórico de treinamento do modelo com transfer learning (objeto History do Keras).
-    :param test_score: Pontuação do teste do modelo sem transfer learning (vetor com perda na posição 0 e acurácia na posição 1).
-    :param test_score_transfer: Pontuação do teste do modelo com transfer learning (vetor com perda na posição 0 e acurácia na posição 1).
     :param i: Número do dataset, usado para nomear os gráficos.
     :param loss_max: Máximo das perdas entre os treinamentos
 
@@ -253,73 +281,70 @@ def plotar_graficos(epocas: int, history: keras.callbacks.History, test_score: t
     - Perda do modelo com transfer learning: './resultados/perda_transfer{i}.png'
     """
     loss_max += 0.1
+    dir = Path(f"./resultados/graphs/dataset{i}")
+
+    if not dir.exists():
+        dir.mkdir()
 
     # plotar loss normal
     plt.title(f"Perda do Modelo {i}")
     plt.plot(history.history['loss'])
     plt.plot(history.history['val_loss'])
-    plt.scatter(epocas - 1, test_score[0], color='red')
-    plt.annotate(f'{test_score[0]:.4f}', (epocas - 1, test_score[0]), textcoords="offset points", xytext=(0, 10),
-                 ha='center', color='red')
     plt.xlabel("Época")
     plt.gca().xaxis.set_major_locator(MaxNLocator(integer=True))  # garante que só inteiros serão utilizados na escala
     plt.ylabel("Perda")
     plt.ylim(0, loss_max)
     plt.legend(['train', 'validation', 'test'])
-    plt.savefig(f"./resultados/perda{i}.png", bbox_inches='tight')
+    plt.savefig(dir / f"perda ({n}).png", bbox_inches='tight')
     plt.close()
 
     # plotar acurácia normal
     plt.title(f"Acurácia do Modelo {i}")
     plt.plot(history.history['accuracy'])
     plt.plot(history.history['val_accuracy'])
-    plt.scatter(epocas - 1, test_score[1], color='red')
-    plt.annotate(f'{test_score[1]:.4f}', (epocas - 1, test_score[1]), textcoords="offset points", xytext=(0, 10),
-                 ha='center', color='red')
     plt.xlabel("Época")
     plt.gca().xaxis.set_major_locator(MaxNLocator(integer=True))  # garante que só inteiros serão utilizados na escala
     plt.ylabel("Acurácia")
     plt.ylim(0, 1)
     plt.legend(['train', 'validation', 'test'])
-    plt.savefig(f"./resultados/acuracia{i}.png", bbox_inches='tight')
+    plt.savefig(dir / f"acuracia ({n}).png", bbox_inches='tight')
     plt.close()
 
     # plotar loss com transfer learning
     plt.title(f"Perda do Modelo {i} Com Transfer Learning")
     plt.plot(history_transfer.history['loss'])
     plt.plot(history_transfer.history['val_loss'])
-    plt.scatter(epocas - 1, test_score_transfer[0], color='red')
-    plt.annotate(f'{test_score_transfer[0]:.4f}', (epocas - 1, test_score_transfer[0]), textcoords="offset points",
-                 xytext=(0, 10), ha='center', color='red')
     plt.xlabel("Época")
     plt.gca().xaxis.set_major_locator(MaxNLocator(integer=True))  # garante que só inteiros serão utilizados na escala
     plt.ylabel("Perda")
     plt.ylim(0, loss_max)
     plt.legend(['train', 'validation', 'test'])
-    plt.savefig(f"./resultados/perda_transfer{i}.png", bbox_inches='tight')
+    plt.savefig(dir / f"perda_transfer ({n}).png", bbox_inches='tight')
     plt.close()
 
     # plotar acurácia com transfer learning
     plt.title(f"Acurácia do Modelo {i} Com Transfer Learning")
     plt.plot(history_transfer.history['accuracy'])
     plt.plot(history_transfer.history['val_accuracy'])
-    plt.scatter(epocas - 1, test_score_transfer[1], color='red')
-    plt.annotate(f'{test_score_transfer[1]:.4f}', (epocas - 1, test_score_transfer[1]), textcoords="offset points",
-                 xytext=(0, 10), ha='center', color='red')
     plt.xlabel("Época")
     plt.gca().xaxis.set_major_locator(MaxNLocator(integer=True))  # garante que só inteiros serão utilizados na escala
     plt.ylabel("Acurácia")
     plt.ylim(0, 1)
     plt.legend(['train', 'validation', 'test'])
-    plt.savefig(f"./resultados/acuracia_transfer{i}.png", bbox_inches='tight')
+    plt.savefig(dir / f"acuracia_transfer ({n}).png", bbox_inches='tight')
     plt.close()
 
 
-def salvar_resultados(N: tuple[list[int], list[int]], i: int, test_score: tuple[float, float],
+def salvar_resultados(N: list[list[int]], i: int, test_score: tuple[float, float],
                       test_score_transfer: tuple[float, float], time: timedelta,
                       time_transfer: timedelta) -> None:
     """
-    Salva especificações do dataset e resultados do teste em um arquivo "resultados/info{i}.txt".
+    Salva especificações do dataset em um arquivo "resultados/info{i}.txt".
+
+    Salva o tempo decorrido no teste no arquivo "resutlados/tempo{i}.csv".
+
+    Salva os valores de acurácia e perda do teste em um arquivo "resultados/teste{i}.csv".
+
 
     :param N: Uma tupla contendo duas listas de inteiros, onde a primeira lista representa o número de exemplos
     positivos e a segunda lista o número de exemplos negativos para cada dataset.
@@ -332,14 +357,14 @@ def salvar_resultados(N: tuple[list[int], list[int]], i: int, test_score: tuple[
     :param time_transfer: Tempo decorrido para o treinamento com transfer learning (um objeto timedelta).
     :return: None
     """
-    with open(f"resultados/info{i}.txt", "w") as file:
-        file.write(f"N: {N[i - 1][0] + N[i - 1][1]} imagens\n")
-        file.write(f"N positivas: {N[i - 1][0]} imagens\n")
-        file.write(f"N negativas: {N[i - 1][1]} imagens\n\n")
-        file.write(f"Tempo decorrido: {time}\n")
-        file.write(f"Perda do teste: {test_score[0]}\n")
-        file.write(f"Acurácia do teste: {test_score[1]}\n\n")
-        file.write(f"Tempo decorrido com transfer learning: {time_transfer}\n")
-        file.write(f"Perda do teste com transfer learning: {test_score_transfer[0]}\n")
-        file.write(f"Acurácia do teste com transfer learning: {test_score_transfer[1]}\n")
-        file.close()
+    if not Path(f"resultados/info{i}.txt").exists():
+        with open(f"resultados/info{i}.txt", "w") as file:
+            file.write(f"N: {N[i - 1][0] + N[i - 1][1]} imagens\n")
+            file.write(f"N positivas: {N[i - 1][0]} imagens\n")
+            file.write(f"N negativas: {N[i - 1][1]} imagens")
+
+    with open(f"resultados/tempo/tempo{i}.csv", "a") as file:
+        file.write(f"{time},{time_transfer}\n")
+
+    with open(f"resultados/testes/testes{i}.csv", "a") as file:
+        file.write(f"{test_score[0]},{test_score[1]},{test_score_transfer[0]},{test_score_transfer[1]}\n")
