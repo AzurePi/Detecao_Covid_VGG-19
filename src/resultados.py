@@ -2,6 +2,7 @@ from datetime import timedelta
 from pathlib import Path
 
 import keras.callbacks
+import numpy as np
 import tensorflow as tf
 from matplotlib import pyplot as plt
 from matplotlib.ticker import MaxNLocator, MultipleLocator
@@ -86,8 +87,8 @@ def plotar_amostra(ds: tf.data.Dataset, filename: str, class_names: list[str]) -
     plt.close()
 
 
-def grafico_aux(i: int, titulo: str, treino, validacao, teste, teste_other, ylabel: str, ylim: tuple, output_path: Path,
-                epoca_excede=None) -> None:
+def grafico_aux(i: int, titulo: str, treino, validacao, teste, teste_other, ylabel: str, ylim: tuple,
+                output_path: Path) -> None:
     """
     Função auxiliar para plotar gráficos de perda e acurácia.
 
@@ -100,7 +101,6 @@ def grafico_aux(i: int, titulo: str, treino, validacao, teste, teste_other, ylab
     :param ylabel: Rótulo do eixo y.
     :param ylim: Limites superior do eixo y.
     :param output_path: Caminho para salvar a imagem.
-    :param epoca_excede: Época em que a acurácia (se houver) excedeu 0.9.
     :return: None
     """
     m = 0.05
@@ -114,18 +114,16 @@ def grafico_aux(i: int, titulo: str, treino, validacao, teste, teste_other, ylab
     plt.plot(treino, label="Treino")
     plt.plot(validacao, label="Validação")
     plt.xlabel("Época")
+    plt.xticks(np.arange(0, len(treino), step=len(treino) // 5))
     plt.gca().xaxis.set_major_locator(MaxNLocator(integer=True))  # garante que só inteiros serão utilizados na escala
     plt.ylabel(ylabel)
     plt.ylim(*ylim)
 
-    if epoca_excede is not None:
-        plt.axvline(x=epoca_excede, color='purple', linestyle='--', label=f"Acima de 0.9 na época {epoca_excede}")
-
     plt.gca().yaxis.set_minor_locator(MultipleLocator(m))
     plt.plot(len(treino) - 1, teste[v], 'o', label=f"Teste (dataset {i})")
 
-    for j in [x for x in [1, 2, 3] if x != i]:
-        plt.plot(len(treino) - 1, teste_other[f"dataset{j}"][v], 'o', label=f"Teste (dataset {j})")
+    for j in [x for x in [1, 2] if x != i]:
+        plt.plot(len(treino) - 1, teste_other[f"dataset{j}"][v], 'o', linewidth=0.5, label=f"Teste (dataset {j})")
 
     plt.grid(which='both', linestyle='--', linewidth=0.5)
     plt.legend(shadow=True)
@@ -135,7 +133,6 @@ def grafico_aux(i: int, titulo: str, treino, validacao, teste, teste_other, ylab
 
 def plotar_graficos(i: int, n: int, loss_max: float, history: keras.callbacks.History,
                     history_transfer: keras.callbacks.History,
-                    epoca_acuracia_excede: int, epoca_acuracia_excede_transfer: int,
                     test, test_transfer, test_others, test_transfer_others) -> None:
     """
     Plota os gráficos de acurácia e perda dos modelos treinados, com e sem transfer learning. Separa os gráficos em
@@ -149,8 +146,6 @@ def plotar_graficos(i: int, n: int, loss_max: float, history: keras.callbacks.Hi
     :param loss_max: Máximo das perdas entre os treinamentos
     :param history: Histórico de treinamento do modelo sem transfer learning (objeto History do Keras).
     :param history_transfer: Histórico de treinamento do modelo com transfer learning (objeto History do Keras).
-    :param epoca_acuracia_excede: Época em que a acurácia de validação excedeu 0.9.
-    :param epoca_acuracia_excede_transfer: Época em que a acurácia de validação com transfer learning excedeu 0.9.
     :param test: Resultados do teste do modelo sem transfer learning no dataset de treino.
     :param test_transfer: Resultados do teste do modelo com transfer learning no dataset de treino.
     :param test_others: Resultados do teste do modelo sem transfer learning nos datasets não utilizados no treino.
@@ -182,7 +177,6 @@ def plotar_graficos(i: int, n: int, loss_max: float, history: keras.callbacks.Hi
     grafico_aux(i=i,
                 titulo=f"Acurácia Com o Dataset {i}",
                 treino=history.history['accuracy'], validacao=history.history['val_accuracy'],
-                epoca_excede=epoca_acuracia_excede,
                 teste=test, teste_other=test_others,
                 ylabel="Acurácia", ylim=(0, 1.05),
                 output_path=dir / f"acuracia ({n}).png")
@@ -191,7 +185,6 @@ def plotar_graficos(i: int, n: int, loss_max: float, history: keras.callbacks.Hi
     grafico_aux(i=i,
                 titulo=f"Acurácia Com o Dataset {i} Com Transfer Learning",
                 treino=history_transfer.history['accuracy'], validacao=history_transfer.history['val_accuracy'],
-                epoca_excede=epoca_acuracia_excede_transfer,
                 teste=test_transfer, teste_other=test_transfer_others,
                 ylabel="Acurácia", ylim=(0, 1.05),
                 output_path=dir / f"acuracia_transfer ({n}).png")
@@ -199,7 +192,7 @@ def plotar_graficos(i: int, n: int, loss_max: float, history: keras.callbacks.Hi
 
 def salvar_resultados(N: list[list[int]], i: int, test_score: tuple[float, float],
                       test_score_transfer: tuple[float, float], time: timedelta, time_transfer: timedelta,
-                      test_scores_others: dict, test_scores_transfer_others: dict, exc, transfer) -> None:
+                      test_scores_others: dict, test_scores_transfer_others: dict) -> None:
     """
     Salva especificações do dataset em um arquivo "resultados/info{i}.txt".
 
@@ -207,8 +200,6 @@ def salvar_resultados(N: list[list[int]], i: int, test_score: tuple[float, float
 
     Salva os valores de acurácia e perda do teste em um arquivo "resultados/teste{i}.csv".
 
-    :param exc:
-    :param transfer:
     :param N: Uma tupla contendo duas listas de inteiros, onde a primeira lista representa o número de exemplos
     positivos e a segunda lista o número de exemplos negativos para cada dataset.
     :param i: Número do dataset, usado para nomear o arquivo de resultados.
@@ -235,7 +226,7 @@ def salvar_resultados(N: list[list[int]], i: int, test_score: tuple[float, float
         file.write(f"{test_score[0]},{test_score[1]},{test_score_transfer[0]},{test_score_transfer[1]}\n")
 
     with open(f"resultados/testes/others{i}.csv", "a") as file:
-        for j in [x for x in [1, 2, 3] if x != i]:
+        for j in [x for x in [1, 2] if x != i]:
             ds = f"dataset{j}"
             file.write(
                 f"{test_scores_others[ds][0]},"

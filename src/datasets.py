@@ -6,7 +6,8 @@ import kaggle
 import tensorflow as tf
 
 
-def carregar_datasets(i: int, validation_split: float, batch_size: int) -> tuple[tf.data.Dataset, tf.data.Dataset, tf.data.Dataset, list[str]]:
+def carregar_datasets(i: int, validation_split: float, batch_size: int) -> tuple[
+    tf.data.Dataset, tf.data.Dataset, tf.data.Dataset, list[str]]:
     """
     Carrega e prepara datasets de treinamento, validação e teste.
 
@@ -245,3 +246,15 @@ def treinamento_e_teste(i: int, num_positivas: int, num_negativas: int, test_spl
         print("Pronto!\n")
     else:
         print(f"Diretórios de treinamento e teste {i} já estão presentes. Prosseguindo...\n")
+
+
+def apagar_treinamento_e_teste():
+    pai = Path("./")
+    deletar = []
+
+    for diretorio in pai.glob("*"):
+        if diretorio.is_dir() and diretorio.name.startswith("teste") or diretorio.name.startswith("treinamento"):
+            deletar.append(diretorio)
+
+    for diretorio in deletar:
+        shutil.rmtree(diretorio)
