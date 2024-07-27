@@ -74,7 +74,7 @@ def criar_modelo_transfer() -> tf.keras.Model:
 
 # Main -----------------------------------------------------------------------------------------------------------------
 
-def main():
+def treinar():
     training, n = prepararResultados()
     salvar_parametros(base_learning_rate, batch_size, epocas, test_split, validation_split)
 
@@ -90,15 +90,17 @@ def main():
     modelo = criar_modelo_normal()
     print("Normal:")
     modelo.summary()
+    #modelo.save('resultados/modelo.keras')
     initial_weights = modelo.get_weights()
 
     modelo_transfer = criar_modelo_transfer()
     print("\nCom transfer learning:")
     modelo_transfer.summary()
+    #modelo.save('resultados/modelo_transfer.keras')
     initial_weights_transfer = modelo_transfer.get_weights()
     print("\n")
 
-    for i in [1, 2]:
+    for i in []:
         print(f"\nCriando datasets keras a partir do diretório dataset{i}...")
         train_ds, validation_ds, test_ds, class_names = carregar_datasets(i, validation_split, batch_size)
         plotar_amostra(train_ds, f"resultados/sample{i}.png", class_names)
@@ -178,7 +180,7 @@ def main():
         loss_max = max(loss_values)
 
     print("Plotando gráficos dos resultados...")
-    for i in [1, 2]:
+    for i in []:
         ds = f"dataset{i}"
         plotar_graficos(i=i, n=n, loss_max=loss_max,
                         history=histories[ds], history_transfer=histories_transfer[ds],
@@ -188,6 +190,6 @@ def main():
 
 
 if __name__ == "__main__":
-    for _ in np.arange(0, 5):
-        main()
+    for _ in np.arange(0, 1):
+        treinar()
         apagar_treinamento_e_teste()

@@ -1,0 +1,3 @@
+N: 2481 imagens
+N positivas: 1252 imagens
+N negativas: 1229 imagens

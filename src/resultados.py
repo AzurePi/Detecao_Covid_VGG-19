@@ -4,6 +4,8 @@ from pathlib import Path
 import keras.callbacks
 import numpy as np
 import tensorflow as tf
+import tensorboard
+
 from matplotlib import pyplot as plt
 from matplotlib.ticker import MaxNLocator, MultipleLocator
 
