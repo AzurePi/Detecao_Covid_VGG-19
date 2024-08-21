@@ -4,7 +4,6 @@ from pathlib import Path
 import keras.callbacks
 import numpy as np
 import tensorflow as tf
-import tensorboard
 
 from matplotlib import pyplot as plt
 from matplotlib.ticker import MaxNLocator, MultipleLocator
@@ -30,7 +29,7 @@ def salvar_parametros(base_learning_rate: float, batch_size: int, epocas: int, t
         file.write(f"Validation split: {validation_split}\n")
 
 
-def prepararResultados() -> tuple[Path, int]:
+def prepararResultados(metrics: list[str]) -> int:
     """
     Prepara a estrutura de diretórios para armazenar os resultados do treinamento. Calcula o número de treinamentos
     já feitos com base na quantidade de arquivos em "./resultados/logs/normal".
@@ -38,34 +37,34 @@ def prepararResultados() -> tuple[Path, int]:
     Verifica se os diretórios "./resultados", "./resultados/logs", "./resultados/logs/normal" e
     "./resultados/logs/transfer" existem. Se não existirem, cria esses diretórios.
 
+    :param: metrics: Lista com os nomes das métricas a serem salvas
     :return: Uma tupla contendo o caminho do diretório de treinamento e o número de treinamentos já feitos (calculado
     com base no número de logs encontrados)
     """
-    dirs = ["./resultados", "./resultados/logs", "./resultados/logs/normal", "./resultados/logs/transfer",
-            "./resultados/graphs", "./resultados/tempo", "./resultados/testes"]
+    dirs = ["./resultados/graphs", "./resultados/tempo", "./resultados/testes",
+            "./resultados/logs/dataset1", "./resultados/logs/dataset2"]
 
     print("Preparando estrutura do diretório de resultados...\n")
 
     for path in dirs:
         Path(path).mkdir(parents=True, exist_ok=True)
 
-    for i in [1, 2, 3]:
+    header = ';'.join(metrics) + ';' + ','.join([str(i) + "_transfer" for i in metrics])
+
+    for i in [1, 2]:
         csv_files = [
-            (f"./resultados/tempo/tempo{i}.csv", "Tempo,Tempo Transfer\n"),
-            (f"./resultados/testes/testes{i}.csv", "Perda,Acurácia,Perda Transfer,Acurácia Transfer\n"),
-            (f"./resultados/testes/others{i}.csv", "".join(
-                f"Perda dataset{j},Acurácia dataset{j},Perda Transfer dataset{j},Acurácia Transfer dataset{j}"
-                for j in [1, 2, 3] if j != i) + "\n")
+            (f"./resultados/tempo/tempo{i}.csv", "tempo,tempo_transfer\n"),
+            (f"./resultados/testes/testes{i}.csv", f"{header}\n"),
+            (f"./resultados/testes/others{i}.csv", f"{header}\n")
         ]
 
-        for path, header in csv_files:
-            if not Path(path).exists():
-                with open(path, "w") as file:
-                    file.write(header)
+        for p, m in csv_files:
+            if not Path(p).exists():
+                with open(p, "w") as file:
+                    file.write(m)
 
-    training = Path("./resultados/logs/normal")
-    n = sum(1 for _ in training.iterdir()) // 2
-    return Path("./resultados/logs"), n
+    n = sum(1 for _ in Path("./resultados/logs/dataset1").iterdir()) // 2
+    return n
 
 
 def plotar_amostra(ds: tf.data.Dataset, filename: str, class_names: list[str]) -> None:
@@ -89,8 +88,7 @@ def plotar_amostra(ds: tf.data.Dataset, filename: str, class_names: list[str]) -
     plt.close()
 
 
-def grafico_aux(i: int, titulo: str, treino, validacao, teste, teste_other, ylabel: str, ylim: tuple,
-                output_path: Path) -> None:
+def grafico_aux(i: int, titulo: str, treino, validacao, teste, teste_other, ylabel: str, output_path: Path) -> None:
     """
     Função auxiliar para plotar gráficos de perda e acurácia.
 
@@ -101,31 +99,31 @@ def grafico_aux(i: int, titulo: str, treino, validacao, teste, teste_other, ylab
     :param teste: Dados de teste.
     :param teste_other: Dados de teste com os demais datasets.
     :param ylabel: Rótulo do eixo y.
-    :param ylim: Limites superior do eixo y.
     :param output_path: Caminho para salvar a imagem.
     :return: None
     """
-    m = 0.05
-    v = 1
-
-    if ylabel == "Perda":
-        m = 0.25
-        v = 0
-
     plt.title(titulo)
     plt.plot(treino, label="Treino")
     plt.plot(validacao, label="Validação")
+
     plt.xlabel("Época")
     plt.xticks(np.arange(0, len(treino), step=len(treino) // 5))
     plt.gca().xaxis.set_major_locator(MaxNLocator(integer=True))  # garante que só inteiros serão utilizados na escala
+
     plt.ylabel(ylabel)
-    plt.ylim(*ylim)
+    plt.gca().yaxis.set_minor_locator(MultipleLocator(0.05))
+    if ylabel == "Acurácia":
+        if i == 2:
+            plt.ylim(0.8, 1.0)  # Limitar o gráfico entre 0.8 e 1.0 para a acurácia do dataset 2
+        else:
+            plt.ylim(0, 1.0)
 
-    plt.gca().yaxis.set_minor_locator(MultipleLocator(m))
-    plt.plot(len(treino) - 1, teste[v], 'o', label=f"Teste (dataset {i})")
+        # plotamos o resultado dos testes só para a acurácia
+        j = 3 - i
 
-    for j in [x for x in [1, 2] if x != i]:
-        plt.plot(len(treino) - 1, teste_other[f"dataset{j}"][v], 'o', linewidth=0.5, label=f"Teste (dataset {j})")
+        plt.plot(len(treino) - 1, teste['accuracy'], 'o', label=f"Teste (dataset {i})")
+        plt.plot(len(treino) - 1, teste_other[f"dataset{j}"]['accuracy'], 'o', linewidth=0.5,
+                 label=f"Teste (dataset {j})")
 
     plt.grid(which='both', linestyle='--', linewidth=0.5)
     plt.legend(shadow=True)
@@ -133,9 +131,8 @@ def grafico_aux(i: int, titulo: str, treino, validacao, teste, teste_other, ylab
     plt.close()
 
 
-def plotar_graficos(i: int, n: int, loss_max: float, history: keras.callbacks.History,
-                    history_transfer: keras.callbacks.History,
-                    test, test_transfer, test_others, test_transfer_others) -> None:
+def plotar_graficos(i: int, n: int, history: keras.callbacks.History, history_transfer: keras.callbacks.History, test,
+                    test_transfer, test_others, test_transfer_others) -> None:
     """
     Plota os gráficos de acurácia e perda dos modelos treinados, com e sem transfer learning. Separa os gráficos em
     pastas diferentes segundo o dataset utilizado.
@@ -145,7 +142,6 @@ def plotar_graficos(i: int, n: int, loss_max: float, history: keras.callbacks.Hi
 
     :param i: Número do dataset, usado para nomear os gráficos.
     :param n: Número de iterações do treinamento
-    :param loss_max: Máximo das perdas entre os treinamentos
     :param history: Histórico de treinamento do modelo sem transfer learning (objeto History do Keras).
     :param history_transfer: Histórico de treinamento do modelo com transfer learning (objeto History do Keras).
     :param test: Resultados do teste do modelo sem transfer learning no dataset de treino.
@@ -153,48 +149,36 @@ def plotar_graficos(i: int, n: int, loss_max: float, history: keras.callbacks.Hi
     :param test_others: Resultados do teste do modelo sem transfer learning nos datasets não utilizados no treino.
     :param test_transfer_others: Resultados do teste do modelo com transfer learning nos datasets não utilizados no treino.
     """
-    loss_max += 0.1
     dir = Path(f"./resultados/graphs/dataset{i}")
 
     if not dir.exists():
         dir.mkdir()
 
     # Plotar perda sem transfer learning
-    grafico_aux(i=i,
-                titulo=f"Perda Com o Dataset {i}",
-                treino=history.history['loss'], validacao=history.history['val_loss'],
-                teste=test, teste_other=test_others,
-                ylabel="Perda", ylim=(0, loss_max),
-                output_path=dir / f"perda ({n}).png")
+    grafico_aux(i=i, titulo=f"Perda Com o Dataset {i}", treino=history.history['loss'],
+                validacao=history.history['val_loss'], teste=test, teste_other=test_others, ylabel="Perda",
+                output_path=dir / f"perda{n}.svg")
 
     # Plotar perda com transfer learning
-    grafico_aux(i=i,
-                titulo=f"Perda Com o Dataset {i} Com Transfer Learning",
-                treino=history_transfer.history['loss'], validacao=history_transfer.history['val_loss'],
-                teste=test_transfer, teste_other=test_transfer_others,
-                ylabel="Perda", ylim=(0, loss_max),
-                output_path=dir / f"perda_transfer ({n}).png")
+    grafico_aux(i=i, titulo=f"Perda Com o Dataset {i} Com Transfer Learning", treino=history_transfer.history['loss'],
+                validacao=history_transfer.history['val_loss'], teste=test_transfer, teste_other=test_transfer_others,
+                ylabel="Perda", output_path=dir / f"perda_transfer{n}.svg")
 
     # Plotar acurácia sem transfer learning
-    grafico_aux(i=i,
-                titulo=f"Acurácia Com o Dataset {i}",
-                treino=history.history['accuracy'], validacao=history.history['val_accuracy'],
-                teste=test, teste_other=test_others,
-                ylabel="Acurácia", ylim=(0, 1.05),
-                output_path=dir / f"acuracia ({n}).png")
+    grafico_aux(i=i, titulo=f"Acurácia Com o Dataset {i}", treino=history.history['accuracy'],
+                validacao=history.history['val_accuracy'], teste=test, teste_other=test_others, ylabel="Acurácia",
+                output_path=dir / f"acuracia{n}.svg")
 
     # Plotar acurácia com transfer learning
-    grafico_aux(i=i,
-                titulo=f"Acurácia Com o Dataset {i} Com Transfer Learning",
+    grafico_aux(i=i, titulo=f"Acurácia Com o Dataset {i} Com Transfer Learning",
                 treino=history_transfer.history['accuracy'], validacao=history_transfer.history['val_accuracy'],
-                teste=test_transfer, teste_other=test_transfer_others,
-                ylabel="Acurácia", ylim=(0, 1.05),
-                output_path=dir / f"acuracia_transfer ({n}).png")
+                teste=test_transfer, teste_other=test_transfer_others, ylabel="Acurácia",
+                output_path=dir / f"acuracia_transfer{n}.svg")
 
 
-def salvar_resultados(N: list[list[int]], i: int, test_score: tuple[float, float],
-                      test_score_transfer: tuple[float, float], time: timedelta, time_transfer: timedelta,
-                      test_scores_others: dict, test_scores_transfer_others: dict) -> None:
+def salvar_resultados(metrics: list[str], N: list[list[int]], i: int, test_score: dict[str:float],
+                      test_score_transfer: dict[str:float], time: timedelta, time_transfer: timedelta,
+                      test_scores_others: dict[str:float], test_scores_transfer_others: dict[str:float]) -> None:
     """
     Salva especificações do dataset em um arquivo "resultados/info{i}.txt".
 
@@ -202,6 +186,7 @@ def salvar_resultados(N: list[list[int]], i: int, test_score: tuple[float, float
 
     Salva os valores de acurácia e perda do teste em um arquivo "resultados/teste{i}.csv".
 
+    :param metrics: Lista com os nomes das métricas a serem salvas
     :param N: Uma tupla contendo duas listas de inteiros, onde a primeira lista representa o número de exemplos
     positivos e a segunda lista o número de exemplos negativos para cada dataset.
     :param i: Número do dataset, usado para nomear o arquivo de resultados.
@@ -225,14 +210,26 @@ def salvar_resultados(N: list[list[int]], i: int, test_score: tuple[float, float
         file.write(f"{time},{time_transfer}\n")
 
     with open(f"resultados/testes/testes{i}.csv", "a") as file:
-        file.write(f"{test_score[0]},{test_score[1]},{test_score_transfer[0]},{test_score_transfer[1]}\n")
+        line = []
+        for metric in metrics:
+            line.append(test_score[metric])
+        for metric in metrics:
+            line.append(test_score_transfer[metric])
+        line = ";".join(str(m) for m in line)
+
+        file.write(f"{line}\n")
 
     with open(f"resultados/testes/others{i}.csv", "a") as file:
-        for j in [x for x in [1, 2] if x != i]:
-            ds = f"dataset{j}"
-            file.write(
-                f"{test_scores_others[ds][0]},"
-                f"{test_scores_others[ds][1]},"
-                f"{test_scores_transfer_others[ds][0]},"
-                f"{test_scores_transfer_others[ds][1]}"
-                "\n")
+        j = 3 - i
+        ds = f"dataset{j}"
+        test_score_other = test_scores_others[ds]
+        test_score_other_transfer = test_scores_transfer_others[ds]
+
+        line = []
+        for metric in metrics:
+            line.append(test_score_other[metric])
+        for metric in metrics:
+            line.append(test_score_other_transfer[metric])
+        line = ";".join(str(m) for m in line)
+
+        file.write(f"{line}\n")

@@ -1,10 +1,8 @@
 /dataset1/
 /dataset2/
-/dataset3/
 /temp/
 /teste1/
 /teste2/
-/teste3/
 /treinamento1/
 /treinamento2/
-/treinamento3/
+*.keras
