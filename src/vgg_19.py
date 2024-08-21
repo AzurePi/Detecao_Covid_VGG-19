@@ -2,7 +2,6 @@
 from datetime import datetime
 from pathlib import Path
 
-import numpy as np
 import tensorflow as tf
 import keras
 
@@ -18,9 +17,8 @@ validation_split = 0.3
 
 dataset_dir1 = Path("./dataset1")  # sarscov2-ctscan-dataset
 dataset_dir2 = Path("./dataset2")  # preprocessed-ct-scans-for-covid19
-dataset_dir3 = Path("./dataset3")  # combinação dos outros dois datasets
 
-metrics = ['accuracy']
+metrics = ["accuracy", "precision", "recall", "f1_score"]
 
 
 # Funções Auxiliares ---------------------------------------------------------------------------------------------------
@@ -75,7 +73,7 @@ def criar_modelo_transfer() -> tf.keras.Model:
 # Main -----------------------------------------------------------------------------------------------------------------
 
 def treinar():
-    training, n = prepararResultados()
+    n = prepararResultados(metrics)
     salvar_parametros(base_learning_rate, batch_size, epocas, test_split, validation_split)
 
     # variáveis para armazenar o desempenho dos modelos em cada dataset
@@ -83,36 +81,35 @@ def treinar():
     test_scores, test_scores_transfer = dict(), dict()
     test_scores_others, test_scores_transfer_others = dict(), dict()
 
-    loss_max = float('-inf')
     N = preparar_diretorios(test_split, [dataset_dir1, dataset_dir2])
 
-    # Criação dos modelos (salvamos os pesos de inicialização para garantir consistência a cada treinamento)
+    # Criação dos modelos (salvamos os pesos de inicialização para garantir consistência dos treinamentos com datasets diferentes0
     modelo = criar_modelo_normal()
     print("Normal:")
     modelo.summary()
-    #modelo.save('resultados/modelo.keras')
+    #modelo.save('modelo.keras')
     initial_weights = modelo.get_weights()
 
     modelo_transfer = criar_modelo_transfer()
     print("\nCom transfer learning:")
     modelo_transfer.summary()
-    #modelo.save('resultados/modelo_transfer.keras')
+    #modelo.save('modelo_transfer.keras')
     initial_weights_transfer = modelo_transfer.get_weights()
     print("\n")
 
-    for i in []:
+    for i in [1, 2]:
         print(f"\nCriando datasets keras a partir do diretório dataset{i}...")
         train_ds, validation_ds, test_ds, class_names = carregar_datasets(i, validation_split, batch_size)
-        plotar_amostra(train_ds, f"resultados/sample{i}.png", class_names)
+        plotar_amostra(train_ds, f"resultados/sample{i}.svg", class_names)
 
         print("Pronto!\n")
 
         # criamos logs em CSV para armazenar as histórias de cada modelo
-        csv_logger = keras.callbacks.CSVLogger(training / f"normal/dataset{i} ({n}).csv", ",", False)
-        csv_logger_transfer = keras.callbacks.CSVLogger(training / f"transfer/dataset{i} ({n}).csv", ",", False)
+        csv_logger = keras.callbacks.CSVLogger(f"resultados/logs/dataset{i}/normal{n}.csv", ",", False)
+        csv_logger_transfer = keras.callbacks.CSVLogger(f"resultados/logs/dataset{i}/transfer{n}.csv", ",", False)
 
         # paramos o treinamento mais cedo (para impedir overfitting) quando a acurácia de validação parar de melhorar
-        early_stopper = keras.callbacks.EarlyStopping(monitor='val_accuracy', restore_best_weights=True, min_delta=0.01,
+        early_stopper = keras.callbacks.EarlyStopping(monitor='val_accuracy', min_delta=0.01,
                                                       start_from_epoch=8, patience=8)
 
         # inicializamos os modelos com os mesmos pesos a cada iteração
@@ -126,33 +123,35 @@ def treinar():
         print("Normal:")
         start_time = datetime.now()
         history = modelo.fit(train_ds, validation_data=validation_ds, epochs=epocas,
-                             callbacks=[csv_logger, early_stopper], verbose=1)
+                             callbacks=[csv_logger, early_stopper], verbose=2)
         time = datetime.now() - start_time
 
         # Treinamento com transfer learning
         print("\nCom transfer learning:")
         start_time = datetime.now()
         history_transfer = modelo_transfer.fit(train_ds, validation_data=validation_ds, epochs=epocas,
-                                               callbacks=[csv_logger_transfer, early_stopper], verbose=1)
+                                               callbacks=[csv_logger_transfer, early_stopper], verbose=2)
         time_transfer = datetime.now() - start_time
 
         print(f"\n--------------------------------------- Testes do modelo {i} ---------------------------------------")
 
         # Testes com o mesmo dataset usado para treinamento
         print(f"Testes com o dataset {i}:\n")
-        test_score = modelo.evaluate(test_ds)
-        test_score_transfer = modelo_transfer.evaluate(test_ds)
+        test_score = modelo.evaluate(test_ds, return_dict=True)
+        test_score_transfer = modelo_transfer.evaluate(test_ds, return_dict=True)
 
         # Testes com os outros datasets
         print("\nRealizando testes com os demais datasets:\n")
         test_score_other, test_score_transfer_other = dict(), dict()
-        for j in [x for x in [1, 2] if x != i]:
-            print(f"Dataset {j}:")
-            ds = f"dataset{j}"
-            _, _, test_ds_other, _ = carregar_datasets(j, validation_split, batch_size)
-            test_score_other[ds] = modelo.evaluate(test_ds_other)  # Teste normal
-            test_score_transfer_other[ds] = modelo_transfer.evaluate(test_ds_other)  # Teste com transfer learning
-            print("\n")
+
+        j = 3 - i
+        print(f"Dataset {j}:")
+        ds = f"dataset{j}"
+        _, _, test_ds_other, _ = carregar_datasets(j, validation_split, batch_size)
+        test_score_other[ds] = modelo.evaluate(test_ds_other, return_dict=True)  # Teste normal
+        test_score_transfer_other[ds] = modelo_transfer.evaluate(test_ds_other,
+                                                                 return_dict=True)  # Teste com transfer learning
+        print("\n")
 
         # Registro dos resultados --------------------------------------------------------------------------------------
         print(f"Salvando resultados para o dataset {i}...\n\n")
@@ -164,32 +163,20 @@ def treinar():
         test_scores_others[ds] = test_score_other
         test_scores_transfer_others[ds] = test_score_transfer_other
 
-        salvar_resultados(N, i, test_score, test_score_transfer, time, time_transfer, test_score_other,
+        salvar_resultados(metrics, N, i, test_score, test_score_transfer, time, time_transfer, test_score_other,
                           test_score_transfer_other)
 
-        # lista para armazenar todos os valores de loss para simplificar a cálulo da máxima
-        loss_values = [
-            loss_max,
-            *history.history['loss'], *history.history['val_loss'],
-            *history_transfer.history['loss'], *history_transfer.history['val_loss'],
-            test_score[0],
-            test_score_transfer[0],
-            *[test_score_other[score][0] for score in test_score_other],
-            *[test_score_transfer_other[score][0] for score in test_score_transfer_other]
-        ]
-        loss_max = max(loss_values)
+        print("Plotando gráficos dos resultados...")
 
-    print("Plotando gráficos dos resultados...")
-    for i in []:
+    for i in [1, 2]:
         ds = f"dataset{i}"
-        plotar_graficos(i=i, n=n, loss_max=loss_max,
-                        history=histories[ds], history_transfer=histories_transfer[ds],
-                        test=test_scores[ds], test_transfer=test_scores_transfer[ds],
-                        test_others=test_scores_others[ds], test_transfer_others=test_scores_transfer_others[ds])
+        plotar_graficos(i=i, n=n, history=histories[ds], history_transfer=histories_transfer[ds], test=test_scores[ds],
+                        test_transfer=test_scores_transfer[ds], test_others=test_scores_others[ds],
+                        test_transfer_others=test_scores_transfer_others[ds])
     print("Pronto! Cheque a pasta resultados.")
 
 
 if __name__ == "__main__":
-    for _ in np.arange(0, 1):
+    for i in range(0, 7):
         treinar()
         apagar_treinamento_e_teste()
