@@ -76,13 +76,55 @@ def plotar_amostra(ds: tf.data.Dataset, filename: str, class_names: list[str]) -
     :param class_names: Nomes das classes às quais as imagens podem pertencer
     """
     rows, cols = 3, 3
+    num_samples = rows * cols
+
+    # calculamos o número de imagens por classe no dataset
+    class_counts = {class_name: 0 for class_name in class_names}
+    for image, labels in ds:
+        for label in labels:
+            class_name = class_names[label.numpy().argmax()]
+            class_counts[class_name] += 1
+
+    # calculamos a proporção
+    total_count = sum(class_counts.values())
+    class_proportions = {class_name: count / total_count for class_name, count in class_counts.items()}
+
+    samples_per_class = {class_name: int(num_samples * class_proportion) for class_name, class_proportion in
+                         class_proportions.items()}
+
+    # garantimos que a o soma dos samples seja igual a num-samples
+    remaining_samples = num_samples - sum(samples_per_class.values())
+    for class_name in sorted(class_proportions, key=class_proportions.get, reverse=True):
+        if remaining_samples == 0:
+            break
+        samples_per_class[class_name] += 1
+        remaining_samples -= 1
+
+    # coletamos as imagens proporcionalmente às classes
+    collected_images = []
+    collected_labels = []
+    current_counts = {class_name: 0 for class_name in class_names}
+
+    for images, labels in ds:
+        for i in range(len(images)):
+            label = labels[i].numpy().argmax()
+            class_name = class_names[label]
+            if current_counts[class_name] < samples_per_class[class_name]:
+                collected_images.append(images[i])
+                collected_labels.append(labels[i])
+                current_counts[class_name] += 1
+            if len(collected_images) == num_samples:
+                break
+        if len(collected_images) == num_samples:
+            break
+
     plt.figure(figsize=(cols * 2.5, rows * 2.5))
-    for images, labels in ds.take(1):
-        for i in range(min(9, len(images))):
-            plt.subplot(rows, cols, i + 1)
-            plt.imshow(images[i].numpy().astype("uint8"))
-            plt.title(class_names[labels[i].numpy().argmax()])
-            plt.axis("off")
+    for i in range(num_samples):
+        plt.subplot(rows, cols, i + 1)
+        plt.imshow(collected_images[i].numpy().astype("uint8"))
+        plt.title(class_names[collected_labels[i].numpy().argmax()])
+        plt.axis("off")
+
     plt.tight_layout()
     plt.savefig(filename, bbox_inches='tight')
     plt.close()
@@ -111,15 +153,25 @@ def grafico_aux(i: int, titulo: str, treino, validacao, teste, teste_other, ylab
     plt.gca().xaxis.set_major_locator(MaxNLocator(integer=True))  # garante que só inteiros serão utilizados na escala
 
     plt.ylabel(ylabel)
-    plt.gca().yaxis.set_minor_locator(MultipleLocator(0.05))
-    if ylabel == "Acurácia":
-        if i == 2:
-            plt.ylim(0.7, 1.0)  # Limitar o gráfico entre 0.7 e 1.0 para a acurácia do dataset 2
+
+    # Ajuste dinâmico da escala do gráfico
+    if ylabel == "Perda":
+        # Definindo o limite dos eixos para a perda com base nos valores de treino e validação
+        min_loss = min(min(treino), min(validacao))
+        max_loss = max(max(treino), max(validacao))
+
+        plt.ylim(min_loss - 0.1 * abs(min_loss), max_loss + 0.1 * abs(max_loss))
+
+        # Calculando uma escala apropriada para o minor locator
+        m = (max_loss - min_loss) / 10
+        plt.gca().yaxis.set_minor_locator(MultipleLocator(m))
+    else:  # Para a acurácia
+        plt.gca().yaxis.set_minor_locator(MultipleLocator(0.05))
+        if i == 2:  # Limitar o gráfico entre 0.7 e 1.0 para a acurácia do dataset 2
+            plt.ylim(0.7, 1.0)
         else:
-            plt.ylim(0, 1.0)
-
+            plt.ylim(0, 1.0)  #
         j = 3 - i
-
         plt.plot(len(treino) - 1, teste['accuracy'], 'o', label=f"Teste (dataset {i})")
         plt.plot(len(treino) - 1, teste_other[f"dataset{j}"]['accuracy'], 'o', linewidth=0.5,
                  label=f"Teste (dataset {j})")
