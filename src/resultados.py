@@ -75,7 +75,7 @@ def plotar_amostra(ds: tf.data.Dataset, filename: str, class_names: list[str]) -
     :param filename: Nome do arquivo para salvar a figura.
     :param class_names: Nomes das classes às quais as imagens podem pertencer
     """
-    print("Plotando amostra do dataset...\n")
+    print("\n\tPlotando amostra do dataset...\n")
 
     rows, cols = 3, 3
     num_samples = rows * cols
@@ -94,7 +94,7 @@ def plotar_amostra(ds: tf.data.Dataset, filename: str, class_names: list[str]) -
     samples_per_class = {class_name: int(num_samples * class_proportion) for class_name, class_proportion in
                          class_proportions.items()}
 
-    # garantimos que a o soma dos samples seja igual a num-samples
+    # garantimos que a soma dos samples seja igual a num-samples
     remaining_samples = num_samples - sum(samples_per_class.values())
     for class_name in sorted(class_proportions, key=class_proportions.get, reverse=True):
         if remaining_samples == 0:
@@ -131,7 +131,7 @@ def plotar_amostra(ds: tf.data.Dataset, filename: str, class_names: list[str]) -
     plt.savefig(filename, bbox_inches='tight')
     plt.close()
 
-    print("Pronto!\n")
+    print("\tPronto!\n")
 
 
 def grafico_aux(i: int, titulo: str, treino, validacao, teste, teste_other, ylabel: str, output_path: Path) -> None:
@@ -160,15 +160,14 @@ def grafico_aux(i: int, titulo: str, treino, validacao, teste, teste_other, ylab
 
     # Ajuste dinâmico da escala do gráfico
     if ylabel == "Perda":
-        # Definindo o limite dos eixos para a perda com base nos valores de treino e validação
-        min_loss = min(min(treino), min(validacao))
         max_loss = max(max(treino), max(validacao))
 
-        plt.ylim(min_loss - 0.1 * abs(min_loss), max_loss + 0.1 * abs(max_loss))
-
-        # Calculando uma escala apropriada para o minor locator
-        m = (max_loss - min_loss) / 10
-        plt.gca().yaxis.set_minor_locator(MultipleLocator(m))
+        if (max_loss >= 4.5):
+            plt.ylim(0, 5)
+            plt.gca().yaxis.set_minor_locator(MultipleLocator(0.5))
+        else:
+            plt.ylim(0, max_loss + 0.1 * abs(max_loss))
+            plt.gca().yaxis.set_minor_locator(MultipleLocator(0.05))
     else:  # Para a acurácia
         plt.gca().yaxis.set_minor_locator(MultipleLocator(0.05))
         if i == 2:  # Limitar o gráfico entre 0.7 e 1.0 para a acurácia do dataset 2

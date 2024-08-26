@@ -97,7 +97,7 @@ def treinar():
     initial_weights_transfer = modelo_transfer.get_weights()
     print("\n")
 
-    for i in [1, 2]:
+    for i in [1]:
         print(f"\nCriando datasets keras a partir do diretório dataset{i}...")
         train_ds, validation_ds, test_ds, class_names = carregar_datasets(i, validation_split, batch_size)
         plotar_amostra(train_ds, f"resultados/sample{i}.svg", class_names)
@@ -168,7 +168,7 @@ def treinar():
 
         print("Plotando gráficos dos resultados...")
 
-    for i in [1, 2]:
+    for i in [1]:
         ds = f"dataset{i}"
         plotar_graficos(i=i, n=n, history=histories[ds], history_transfer=histories_transfer[ds], test=test_scores[ds],
                         test_transfer=test_scores_transfer[ds], test_others=test_scores_others[ds],
@@ -177,6 +177,6 @@ def treinar():
 
 
 if __name__ == "__main__":
-    # for _ in range(0, 8):
-    treinar()
-    apagar_treinamento_e_teste()
+    for _ in range(0, 8):
+        treinar()
+        apagar_treinamento_e_teste()
