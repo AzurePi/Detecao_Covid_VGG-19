@@ -87,13 +87,13 @@ def treinar():
     modelo = criar_modelo_normal()
     print("Normal:")
     modelo.summary()
-    #modelo.save('modelo.keras')
+    # modelo.save('modelo.keras')
     initial_weights = modelo.get_weights()
 
     modelo_transfer = criar_modelo_transfer()
     print("\nCom transfer learning:")
     modelo_transfer.summary()
-    #modelo.save('modelo_transfer.keras')
+    # modelo.save('modelo_transfer.keras')
     initial_weights_transfer = modelo_transfer.get_weights()
     print("\n")
 
@@ -177,6 +177,6 @@ def treinar():
 
 
 if __name__ == "__main__":
-    for _ in range(0, 8):
-        treinar()
-        apagar_treinamento_e_teste()
+    # for _ in range(0, 8):
+    treinar()
+    apagar_treinamento_e_teste()
