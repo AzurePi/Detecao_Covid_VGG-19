@@ -7,7 +7,7 @@ import tensorflow as tf
 
 
 def carregar_datasets(i: int, validation_split: float, batch_size: int) -> tuple[
-    tf.data.Dataset, tf.data.Dataset, tf.data.Dataset, list[str]]:
+        tf.data.Dataset, tf.data.Dataset, tf.data.Dataset, list[str]]:
     """
     Carrega e prepara datasets de treinamento, validação e teste.
 
@@ -62,8 +62,7 @@ def carregar_datasets(i: int, validation_split: float, batch_size: int) -> tuple
     return train_ds, validation_ds, test_ds, class_names
 
 
-def preparar_diretorios(test_split: float, dataset_dirs=[Path("./dataset1"), Path("./dataset2"), Path("./dataset3")]) -> \
-        list[list[int]]:
+def preparar_diretorios(test_split: float, dataset_dirs=[Path("./dataset1"), Path("./dataset2")]) -> list[list[int]]:
     """
     Prepara os diretórios e conjuntos de dados para treinamento e teste.
 
@@ -81,8 +80,6 @@ def preparar_diretorios(test_split: float, dataset_dirs=[Path("./dataset1"), Pat
             preparar_dataset1(dataset_dir)
         elif i == 2:
             preparar_dataset2(dataset_dir)
-        elif i == 3:
-            preparar_dataset3(*dataset_dirs)
 
         num_positivas = len(list((dataset_dir / "positivo").glob("*")))
         num_negativas = len(list((dataset_dir / "negativo").glob("*")))
@@ -163,32 +160,6 @@ def preparar_dataset2(dataset_dir=Path("./dataset2")) -> None:
         print("Diretório de imagens para o dataset 2 já está presente na máquina. Prosseguindo...\n")
 
 
-def preparar_dataset3(dataset_dir1=Path("./dataset1"), dataset_dir2=Path("./dataset2"),
-                      dataset_dir3=Path("./dataset3")) -> None:
-    """
-    Prepara o ambiente com um dataset que une imagens do dataset1 e do dataset2.
-
-    :param dataset_dir1: Diretório do dataset 1
-    :param dataset_dir2: Diretório do dataset 2
-    :param dataset_dir3: Um diretório onde o dataset unido será armazenado.
-    :return: None
-    """
-    if not dataset_dir3.exists():
-        print("Unindo diretórios 1 e 2 e criando diretório 3...")
-
-        dataset_dir3.mkdir()
-        (dataset_dir3 / "positivo").mkdir()
-        (dataset_dir3 / "negativo").mkdir()
-
-        for dataset in dataset_dir1, dataset_dir2:
-            shutil.copytree(dataset / "positivo", dataset_dir3 / "positivo", dirs_exist_ok=True)
-            shutil.copytree(dataset / "negativo", dataset_dir3 / "negativo", dirs_exist_ok=True)
-
-        print("Pronto!\n")
-    else:
-        print("Diretório 3 unindo datasets 1 e 2 já está presente na máquina. Prosseguindo...\n")
-
-
 def mover_imagens(origem: Path, num_imagens: int, destino: str) -> None:
     """
     Move um número especificado de imagens de um diretório de origem para um destino.
@@ -210,7 +181,7 @@ def mover_imagens(origem: Path, num_imagens: int, destino: str) -> None:
 def treinamento_e_teste(i: int, num_positivas: int, num_negativas: int, test_split: float, dataset_dir: Path) -> None:
     """
     Verifica se os diretórios de treinamento e teste já existem. Se não existirem, cria um diretório temporário,
-    copia as imagens do dataset original para esse diretório e então distribui as imagens entre os diretórios
+    copia as imagens do dataset original para esse diretório e então distribui as imagens entre diretórios
     de treinamento e teste conforme a proporção "test_split".
 
     :param i: Número do dataset, utilizado para nomear os diretórios de treinamento e teste.

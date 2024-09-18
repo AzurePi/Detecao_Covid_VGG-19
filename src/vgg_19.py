@@ -20,6 +20,8 @@ dataset_dir2 = Path("./dataset2")  # preprocessed-ct-scans-for-covid19
 
 metrics = ["accuracy", "precision", "recall", "f1_score"]
 
+runs = 8  # número de iterações para preparar os datasets, criar e treinar os modelos, e salvar os resultados
+
 
 # Funções Auxiliares ---------------------------------------------------------------------------------------------------
 
@@ -177,6 +179,6 @@ def treinar():
 
 
 if __name__ == "__main__":
-    for _ in range(0, 8):
+    for _ in range(0, runs):
         treinar()
         apagar_treinamento_e_teste()
