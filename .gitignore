@@ -8,3 +8,4 @@
 /treinamento2/
 /resultados/
 *.keras
+/venv/
