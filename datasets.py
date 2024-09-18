@@ -220,7 +220,7 @@ def treinamento_e_teste(i: int, num_positivas: int, num_negativas: int, test_spl
 
 
 def apagar_treinamento_e_teste():
-    pai = Path("./")
+    pai = Path("src/")
     deletar = []
 
     for diretorio in pai.glob("*"):

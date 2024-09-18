@@ -9,3 +9,4 @@
 /resultados/
 *.keras
 /venv/
+/.run/
