@@ -1,4 +1,4 @@
-Esse repositório contém o código fonte utilizado no projeto <b>Diagnóstico Automático Não-Invasivo de Covid-19 a partir de Imagens de Tomografia Computadorizada utilizando Redes Neurais Profundas e Transfer Learning</b>.
+Esse repositório contém o código fonte utilizado no projeto [<b>Diagnóstico Automático Não-Invasivo de Covid-19 a partir de Imagens de Tomografia Computadorizada utilizando Redes Neurais Profundas e Transfer Learning</b>](https://eventos.reitoria.unesp.br/anais/xxxvicicunesp/1012751-diagnostico-automatico-nao-invasivo-de-covid-19-a-partir-de-imagens-de-tomografia-computadorizada-utilizando-red).
 
 Pesquisa realizada por Pedro Benedicto de Melo Cardana, sob a supervisão de Wallace Casaca, na Universidade Estadual Paulista Júlio de Mesquita Filho, câmpus são José do Rio Preto.
 
